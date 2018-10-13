@@ -35,6 +35,7 @@ limitations under the License.
 #include <sys/types.h> // required for stat.h
 #include <sys/wait.h>
 #include <unistd.h>
+#include <pwd.h>
 #ifdef __GLIBC__
 #include <malloc.h>
 #endif
@@ -42,6 +43,19 @@ limitations under the License.
 #include <string>
 
 namespace {
+
+std::string getHomeDir() {
+    char* envhome = getenv("HOME");
+    if (envhome && ::strlen(envhome) > 0) {
+        return envhome;
+    }
+
+    auto pw = getpwuid(getuid());
+    if (!pw) {
+        return "";
+    }
+    return pw->pw_dir;
+}
 
 // Returns the canonicalized absolute pathname, without expanding symbolic
 // links. This is a variant of realpath(2), C++ rewrite of
@@ -64,6 +78,9 @@ std::optional<std::string> RealPathNotExpandSymlink(std::string path) {
   struct stat sb;
   if (path[0] == '/') {
     resolved = "/";
+    i = 1;
+  } else if (path[0] == '~') {
+    resolved = getHomeDir();
     i = 1;
   } else {
     if (!getcwd(tmp, sizeof tmp))
